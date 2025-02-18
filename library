@@ -9,7 +9,7 @@ function UILibrary.new(title)
 
     self.Visible = true
     self.MenuKey = Enum.KeyCode.RightShift -- Default menu key
-    self.SelectedIndex = 1
+    self.SelectedIndex = 1 -- Default to first option
     self.SettingKeybind = false
     self.Elements = {}
 
@@ -38,16 +38,18 @@ function UILibrary.new(title)
 
         if input.KeyCode == Enum.KeyCode.Up then
             self.SelectedIndex = math.max(1, self.SelectedIndex - 1)
+            self:UpdateSelection()
         elseif input.KeyCode == Enum.KeyCode.Down then
             self.SelectedIndex = math.min(#self.Elements, self.SelectedIndex + 1)
+            self:UpdateSelection()
         elseif input.KeyCode == Enum.KeyCode.Right then
             local element = self.Elements[self.SelectedIndex]
             if element and element.Type == "Toggle" then
                 element.State = not element.State
-                element.Object.Text = element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
+                element.Object.Text = "> " .. element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
                 if element.Callback then element.Callback(element.State) end
             elseif element and element.Type == "Keybind" and not self.SettingKeybind then
-                element.Object.Text = element.Text .. " [Press Any Key]"
+                element.Object.Text = "> " .. element.Text .. " [Press Any Key]"
                 self.SettingKeybind = true
             end
         end
@@ -59,7 +61,7 @@ function UILibrary.new(title)
             local element = self.Elements[self.SelectedIndex]
             if element and element.Type == "Keybind" then
                 element.AssignedKey = input.KeyCode
-                element.Object.Text = element.Text .. " [" .. tostring(element.AssignedKey) .. "]"
+                element.Object.Text = "> " .. element.Text .. " [" .. tostring(element.AssignedKey) .. "]"
                 self.SettingKeybind = false
                 if element.Callback then element.Callback(element.AssignedKey) end
             end
@@ -75,6 +77,16 @@ function UILibrary:ToggleVisibility()
     self.Divider.Visible = self.Visible
     for _, element in pairs(self.Elements) do
         element.Object.Visible = self.Visible
+    end
+end
+
+function UILibrary:UpdateSelection()
+    for i, element in ipairs(self.Elements) do
+        if i == self.SelectedIndex then
+            element.Object.Text = "> " .. element.Text
+        else
+            element.Object.Text = element.Text
+        end
     end
 end
 
@@ -97,6 +109,8 @@ function UILibrary:AddToggle(name, default, callback)
         State = default,
         Callback = callback
     })
+
+    self:UpdateSelection()
 end
 
 function UILibrary:AddSlider(name, min, max, default, callback)
@@ -120,6 +134,8 @@ function UILibrary:AddSlider(name, min, max, default, callback)
         Max = max,
         Callback = callback
     })
+
+    self:UpdateSelection()
 end
 
 function UILibrary:AddKeybind(name, defaultKey, callback)
@@ -141,6 +157,8 @@ function UILibrary:AddKeybind(name, defaultKey, callback)
         AssignedKey = defaultKey,
         Callback = callback
     })
+
+    self:UpdateSelection()
 end
 
 return UILibrary
