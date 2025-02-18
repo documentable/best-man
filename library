@@ -1,4 +1,5 @@
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local UILibrary = {}
 UILibrary.__index = UILibrary
@@ -6,98 +7,112 @@ UILibrary.__index = UILibrary
 function UILibrary.new(title)
     local self = setmetatable({}, UILibrary)
 
-    -- UI State
     self.Visible = true
     self.MenuKey = Enum.KeyCode.RightShift -- Default menu key
 
-    -- UI Container
-    self.Container = Instance.new("ScreenGui")
-    self.Container.Name = "MinimalistUILibrary"
-    self.Container.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+    -- UI Elements
+    self.Elements = {}
+    self.ElementYOffset = 50
 
     -- Title
-    self.Title = Instance.new("TextLabel", self.Container)
+    self.Title = Drawing.new("Text")
     self.Title.Text = title
-    self.Title.Size = UDim2.new(0, 200, 0, 20)
-    self.Title.Position = UDim2.new(0.02, 0, 0.02, 0)
-    self.Title.BackgroundTransparency = 1
-    self.Title.TextScaled = true
-    self.Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    self.Title.Font = Enum.Font.Code
+    self.Title.Size = 24
+    self.Title.Position = Vector2.new(20, 20)
+    self.Title.Color = Color3.fromRGB(255, 255, 255)
+    self.Title.Visible = self.Visible
 
     -- Divider
-    self.Divider = Instance.new("Frame", self.Container)
-    self.Divider.Size = UDim2.new(0, 200, 0, 2)
-    self.Divider.Position = UDim2.new(0.02, 0, 0.06, 0)
-    self.Divider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-
-    -- UI Elements Storage
-    self.Elements = {}
-    self.ElementYOffset = 30
+    self.Divider = Drawing.new("Line")
+    self.Divider.From = Vector2.new(20, 45)
+    self.Divider.To = Vector2.new(220, 45)
+    self.Divider.Color = Color3.fromRGB(255, 255, 255)
+    self.Divider.Visible = self.Visible
 
     -- Menu Toggle
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if not gameProcessed and input.KeyCode == self.MenuKey then
             self.Visible = not self.Visible
-            self.Container.Enabled = self.Visible
+            self:ToggleVisibility()
         end
     end)
 
     return self
 end
 
-function UILibrary:AddToggle(name, default, callback)
-    local Toggle = Instance.new("TextButton", self.Container)
-    Toggle.Text = name .. " [" .. (default and "ON" or "OFF") .. "]"
-    Toggle.Size = UDim2.new(0, 200, 0, 25)
-    Toggle.Position = UDim2.new(0.02, 0, 0, self.ElementYOffset)
-    Toggle.BackgroundTransparency = 1
-    Toggle.TextScaled = true
-    Toggle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Toggle.Font = Enum.Font.Code
+function UILibrary:ToggleVisibility()
+    self.Title.Visible = self.Visible
+    self.Divider.Visible = self.Visible
+    for _, element in pairs(self.Elements) do
+        element.Visible = self.Visible
+    end
+end
 
-    self.ElementYOffset = self.ElementYOffset + 30
+function UILibrary:AddToggle(name, default, callback)
+    local Toggle = Drawing.new("Text")
+    Toggle.Text = name .. " [OFF]"
+    Toggle.Size = 18
+    Toggle.Position = Vector2.new(20, self.ElementYOffset)
+    Toggle.Color = Color3.fromRGB(255, 255, 255)
+    Toggle.Visible = self.Visible
+
+    self.ElementYOffset = self.ElementYOffset + 25
+    table.insert(self.Elements, Toggle)
 
     local state = default
 
-    Toggle.MouseButton1Click:Connect(function()
-        state = not state
-        Toggle.Text = name .. " [" .. (state and "ON" or "OFF") .. "]"
-        if callback then
-            callback(state)
+    Toggle.InputBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local mouse = UserInputService:GetMouseLocation()
+            if (mouse - Toggle.Position).Magnitude < 100 then
+                state = not state
+                Toggle.Text = name .. " [" .. (state and "ON" or "OFF") .. "]"
+                if callback then
+                    callback(state)
+                end
+            end
         end
     end)
 end
 
 function UILibrary:AddSlider(name, min, max, default, callback)
-    local SliderLabel = Instance.new("TextLabel", self.Container)
+    local SliderLabel = Drawing.new("Text")
     SliderLabel.Text = name .. ": " .. default
-    SliderLabel.Size = UDim2.new(0, 200, 0, 25)
-    SliderLabel.Position = UDim2.new(0.02, 0, 0, self.ElementYOffset)
-    SliderLabel.BackgroundTransparency = 1
-    SliderLabel.TextScaled = true
-    SliderLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    SliderLabel.Font = Enum.Font.Code
+    SliderLabel.Size = 18
+    SliderLabel.Position = Vector2.new(20, self.ElementYOffset)
+    SliderLabel.Color = Color3.fromRGB(255, 255, 255)
+    SliderLabel.Visible = self.Visible
 
-    self.ElementYOffset = self.ElementYOffset + 30
+    self.ElementYOffset = self.ElementYOffset + 25
 
-    local Slider = Instance.new("Frame", self.Container)
-    Slider.Size = UDim2.new(0, 200, 0, 5)
-    Slider.Position = UDim2.new(0.02, 0, 0, self.ElementYOffset)
-    Slider.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    local Slider = Drawing.new("Line")
+    Slider.From = Vector2.new(20, self.ElementYOffset)
+    Slider.To = Vector2.new(220, self.ElementYOffset)
+    Slider.Color = Color3.fromRGB(255, 255, 255)
+    Slider.Visible = self.Visible
 
-    local SliderButton = Instance.new("TextButton", Slider)
-    SliderButton.Size = UDim2.new(0, 10, 1, 0)
-    SliderButton.Position = UDim2.new((default - min) / (max - min), 0, 0, 0)
-    SliderButton.BackgroundColor3 = Color3.fromRGB(69, 69, 207)
-    SliderButton.Text = ""
-    
-    self.ElementYOffset = self.ElementYOffset + 20
+    self.ElementYOffset = self.ElementYOffset + 10
 
     local dragging = false
+    local sliderPos = Vector2.new(20 + ((default - min) / (max - min)) * 200, self.ElementYOffset)
 
-    SliderButton.MouseButton1Down:Connect(function()
-        dragging = true
+    local SliderButton = Drawing.new("Circle")
+    SliderButton.Position = sliderPos
+    SliderButton.Radius = 5
+    SliderButton.Color = Color3.fromRGB(69, 69, 207)
+    SliderButton.Visible = self.Visible
+
+    table.insert(self.Elements, SliderLabel)
+    table.insert(self.Elements, Slider)
+    table.insert(self.Elements, SliderButton)
+
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local mouse = UserInputService:GetMouseLocation()
+            if (mouse - SliderButton.Position).Magnitude < 10 then
+                dragging = true
+            end
+        end
     end)
 
     UserInputService.InputEnded:Connect(function(input)
@@ -106,11 +121,11 @@ function UILibrary:AddSlider(name, min, max, default, callback)
         end
     end)
 
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
-            local mouseX = math.clamp(input.Position.X - Slider.AbsolutePosition.X, 0, 200)
-            local newValue = math.floor(((mouseX / 200) * (max - min)) + min)
-            SliderButton.Position = UDim2.new(mouseX / 200, 0, 0, 0)
+    RunService.RenderStepped:Connect(function()
+        if dragging then
+            local mouseX = math.clamp(UserInputService:GetMouseLocation().X, 20, 220)
+            local newValue = math.floor(((mouseX - 20) / 200) * (max - min) + min)
+            SliderButton.Position = Vector2.new(mouseX, SliderButton.Position.Y)
             SliderLabel.Text = name .. ": " .. newValue
             if callback then
                 callback(newValue)
@@ -120,32 +135,40 @@ function UILibrary:AddSlider(name, min, max, default, callback)
 end
 
 function UILibrary:AddKeybind(name, defaultKey, callback)
-    local Keybind = Instance.new("TextButton", self.Container)
+    local Keybind = Drawing.new("Text")
     Keybind.Text = name .. " [" .. tostring(defaultKey) .. "]"
-    Keybind.Size = UDim2.new(0, 200, 0, 25)
-    Keybind.Position = UDim2.new(0.02, 0, 0, self.ElementYOffset)
-    Keybind.BackgroundTransparency = 1
-    Keybind.TextScaled = true
-    Keybind.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Keybind.Font = Enum.Font.Code
+    Keybind.Size = 18
+    Keybind.Position = Vector2.new(20, self.ElementYOffset)
+    Keybind.Color = Color3.fromRGB(255, 255, 255)
+    Keybind.Visible = self.Visible
 
-    self.ElementYOffset = self.ElementYOffset + 30
+    self.ElementYOffset = self.ElementYOffset + 25
+    table.insert(self.Elements, Keybind)
 
     local binding = false
     local assignedKey = defaultKey
 
-    Keybind.MouseButton1Click:Connect(function()
-        Keybind.Text = name .. " [Press Any Key]"
-        binding = true
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not gameProcessed then
+            if binding then
+                assignedKey = input.KeyCode
+                Keybind.Text = name .. " [" .. tostring(assignedKey) .. "]"
+                binding = false
+                if callback then
+                    callback(assignedKey)
+                end
+            elseif input.KeyCode == assignedKey then
+                callback(assignedKey)
+            end
+        end
     end)
 
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if binding and not gameProcessed then
-            assignedKey = input.KeyCode
-            Keybind.Text = name .. " [" .. tostring(assignedKey) .. "]"
-            binding = false
-            if callback then
-                callback(assignedKey)
+    Keybind.InputBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton1 then
+            local mouse = UserInputService:GetMouseLocation()
+            if (mouse - Keybind.Position).Magnitude < 100 then
+                Keybind.Text = name .. " [Press Any Key]"
+                binding = true
             end
         end
     end)
