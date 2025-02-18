@@ -13,11 +13,16 @@ function UILibrary.new(title)
     self.SettingKeybind = false
     self.Elements = {}
 
+    -- Get Screen Size
+    local ScreenSize = workspace.CurrentCamera.ViewportSize
+    local UI_X = 20
+    local UI_Y = ScreenSize.Y - 160
+
     -- Title
     self.Title = Drawing.new("Text")
     self.Title.Text = title
     self.Title.Size = 24
-    self.Title.Position = Vector2.new(20, workspace.CurrentCamera.ViewportSize.Y - 160)
+    self.Title.Position = Vector2.new(UI_X, UI_Y)
     self.Title.Color = Color3.fromRGB(255, 255, 255)
     self.Title.Outline = true
     self.Title.Font = 2 -- JosefinSans
@@ -25,12 +30,12 @@ function UILibrary.new(title)
 
     -- Divider
     self.Divider = Drawing.new("Line")
-    self.Divider.From = Vector2.new(20, self.Title.Position.Y + 25)
-    self.Divider.To = Vector2.new(220, self.Title.Position.Y + 25)
+    self.Divider.From = Vector2.new(UI_X, UI_Y + 25)
+    self.Divider.To = Vector2.new(UI_X + 200, UI_Y + 25)
     self.Divider.Color = Color3.fromRGB(255, 255, 255)
     self.Divider.Visible = self.Visible
 
-    self.ElementYOffset = self.Title.Position.Y + 40
+    self.ElementYOffset = UI_Y + 40
 
     -- Arrow Key Navigation
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -44,13 +49,15 @@ function UILibrary.new(title)
             self:UpdateSelection()
         elseif input.KeyCode == Enum.KeyCode.Right then
             local element = self.Elements[self.SelectedIndex]
-            if element and element.Type == "Toggle" then
-                element.State = not element.State
-                element.Object.Text = "> " .. element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
-                if element.Callback then element.Callback(element.State) end
-            elseif element and element.Type == "Keybind" and not self.SettingKeybind then
-                element.Object.Text = "> " .. element.Text .. " [Press Any Key]"
-                self.SettingKeybind = true
+            if element then
+                if element.Type == "Toggle" then
+                    element.State = not element.State
+                    element.Object.Text = "> " .. element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
+                    if element.Callback then element.Callback(element.State) end
+                elseif element.Type == "Keybind" and not self.SettingKeybind then
+                    element.Object.Text = "> " .. element.Text .. " [Press Any Key]"
+                    self.SettingKeybind = true
+                end
             end
         end
     end)
@@ -61,7 +68,7 @@ function UILibrary.new(title)
             local element = self.Elements[self.SelectedIndex]
             if element and element.Type == "Keybind" then
                 element.AssignedKey = input.KeyCode
-                element.Object.Text = "> " .. element.Text .. " [" .. tostring(element.AssignedKey) .. "]"
+                element.Object.Text = "> " .. element.Text .. " [" .. self:FormatKeyName(element.AssignedKey) .. "]"
                 self.SettingKeybind = false
                 if element.Callback then element.Callback(element.AssignedKey) end
             end
@@ -85,9 +92,19 @@ function UILibrary:UpdateSelection()
         if i == self.SelectedIndex then
             element.Object.Text = "> " .. element.Text
         else
-            element.Object.Text = element.Text
+            if element.Type == "Toggle" then
+                element.Object.Text = element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
+            elseif element.Type == "Keybind" then
+                element.Object.Text = element.Text .. " [" .. self:FormatKeyName(element.AssignedKey) .. "]"
+            else
+                element.Object.Text = element.Text
+            end
         end
     end
+end
+
+function UILibrary:FormatKeyName(keyCode)
+    return tostring(keyCode):gsub("Enum.KeyCode.", "")
 end
 
 function UILibrary:AddToggle(name, default, callback)
@@ -140,7 +157,7 @@ end
 
 function UILibrary:AddKeybind(name, defaultKey, callback)
     local Keybind = Drawing.new("Text")
-    Keybind.Text = name .. " [" .. tostring(defaultKey) .. "]"
+    Keybind.Text = name .. " [" .. self:FormatKeyName(defaultKey) .. "]"
     Keybind.Size = 18
     Keybind.Position = Vector2.new(20, self.ElementYOffset)
     Keybind.Color = Color3.fromRGB(255, 255, 255)
