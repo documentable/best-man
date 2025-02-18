@@ -44,7 +44,7 @@ function UILibrary.new(title)
     self.ElementYOffset = UI_Y + 40
 
     -- UI Toggle
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    self.InputConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
 
         if input.KeyCode == self.MenuKey then
@@ -72,7 +72,7 @@ function UILibrary.new(title)
     end)
 
     -- Keybind Setting & Keybind Triggering
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    self.KeybindConnection = UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if self.SettingKeybind and not gameProcessed then
             local element = self.Elements[self.SelectedIndex]
             if element and element.Type == "Keybind" then
@@ -175,6 +175,26 @@ function UILibrary:AddKeybind(name, defaultKey, callback)
     })
 
     self:UpdateSelection()
+end
+
+function UILibrary:Destroy()
+    -- Disconnect Input Listeners
+    if self.InputConnection then self.InputConnection:Disconnect() end
+    if self.KeybindConnection then self.KeybindConnection:Disconnect() end
+
+    -- Remove UI Elements
+    self.Title:Remove()
+    self.Divider:Remove()
+
+    for _, element in pairs(self.Elements) do
+        element.Object:Remove()
+    end
+
+    -- Clear UI Elements Table
+    self.Elements = {}
+
+    -- Set UI Instance to nil
+    setmetatable(self, nil)
 end
 
 return UILibrary
