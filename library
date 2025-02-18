@@ -9,31 +9,60 @@ function UILibrary.new(title)
 
     self.Visible = true
     self.MenuKey = Enum.KeyCode.RightShift -- Default menu key
-
-    -- UI Elements
+    self.SelectedIndex = 1
+    self.SettingKeybind = false
     self.Elements = {}
-    self.ElementYOffset = 50
 
     -- Title
     self.Title = Drawing.new("Text")
     self.Title.Text = title
     self.Title.Size = 24
-    self.Title.Position = Vector2.new(20, 20)
+    self.Title.Position = Vector2.new(20, workspace.CurrentCamera.ViewportSize.Y - 160)
     self.Title.Color = Color3.fromRGB(255, 255, 255)
+    self.Title.Outline = true
+    self.Title.Font = 2 -- JosefinSans
     self.Title.Visible = self.Visible
 
     -- Divider
     self.Divider = Drawing.new("Line")
-    self.Divider.From = Vector2.new(20, 45)
-    self.Divider.To = Vector2.new(220, 45)
+    self.Divider.From = Vector2.new(20, self.Title.Position.Y + 25)
+    self.Divider.To = Vector2.new(220, self.Title.Position.Y + 25)
     self.Divider.Color = Color3.fromRGB(255, 255, 255)
     self.Divider.Visible = self.Visible
 
-    -- Menu Toggle
+    self.ElementYOffset = self.Title.Position.Y + 40
+
+    -- Arrow Key Navigation
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if not gameProcessed and input.KeyCode == self.MenuKey then
-            self.Visible = not self.Visible
-            self:ToggleVisibility()
+        if gameProcessed then return end
+
+        if input.KeyCode == Enum.KeyCode.Up then
+            self.SelectedIndex = math.max(1, self.SelectedIndex - 1)
+        elseif input.KeyCode == Enum.KeyCode.Down then
+            self.SelectedIndex = math.min(#self.Elements, self.SelectedIndex + 1)
+        elseif input.KeyCode == Enum.KeyCode.Right then
+            local element = self.Elements[self.SelectedIndex]
+            if element and element.Type == "Toggle" then
+                element.State = not element.State
+                element.Object.Text = element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
+                if element.Callback then element.Callback(element.State) end
+            elseif element and element.Type == "Keybind" and not self.SettingKeybind then
+                element.Object.Text = element.Text .. " [Press Any Key]"
+                self.SettingKeybind = true
+            end
+        end
+    end)
+
+    -- Keybind Setting
+    UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        if self.SettingKeybind and not gameProcessed then
+            local element = self.Elements[self.SelectedIndex]
+            if element and element.Type == "Keybind" then
+                element.AssignedKey = input.KeyCode
+                element.Object.Text = element.Text .. " [" .. tostring(element.AssignedKey) .. "]"
+                self.SettingKeybind = false
+                if element.Callback then element.Callback(element.AssignedKey) end
+            end
         end
     end)
 
@@ -41,10 +70,11 @@ function UILibrary.new(title)
 end
 
 function UILibrary:ToggleVisibility()
+    self.Visible = not self.Visible
     self.Title.Visible = self.Visible
     self.Divider.Visible = self.Visible
     for _, element in pairs(self.Elements) do
-        element.Visible = self.Visible
+        element.Object.Visible = self.Visible
     end
 end
 
@@ -54,25 +84,19 @@ function UILibrary:AddToggle(name, default, callback)
     Toggle.Size = 18
     Toggle.Position = Vector2.new(20, self.ElementYOffset)
     Toggle.Color = Color3.fromRGB(255, 255, 255)
+    Toggle.Outline = true
+    Toggle.Font = 2 -- JosefinSans
     Toggle.Visible = self.Visible
 
     self.ElementYOffset = self.ElementYOffset + 25
-    table.insert(self.Elements, Toggle)
 
-    local state = default
-
-    Toggle.InputBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local mouse = UserInputService:GetMouseLocation()
-            if (mouse - Toggle.Position).Magnitude < 100 then
-                state = not state
-                Toggle.Text = name .. " [" .. (state and "ON" or "OFF") .. "]"
-                if callback then
-                    callback(state)
-                end
-            end
-        end
-    end)
+    table.insert(self.Elements, {
+        Type = "Toggle",
+        Object = Toggle,
+        Text = name,
+        State = default,
+        Callback = callback
+    })
 end
 
 function UILibrary:AddSlider(name, min, max, default, callback)
@@ -81,57 +105,21 @@ function UILibrary:AddSlider(name, min, max, default, callback)
     SliderLabel.Size = 18
     SliderLabel.Position = Vector2.new(20, self.ElementYOffset)
     SliderLabel.Color = Color3.fromRGB(255, 255, 255)
+    SliderLabel.Outline = true
+    SliderLabel.Font = 2 -- JosefinSans
     SliderLabel.Visible = self.Visible
 
     self.ElementYOffset = self.ElementYOffset + 25
 
-    local Slider = Drawing.new("Line")
-    Slider.From = Vector2.new(20, self.ElementYOffset)
-    Slider.To = Vector2.new(220, self.ElementYOffset)
-    Slider.Color = Color3.fromRGB(255, 255, 255)
-    Slider.Visible = self.Visible
-
-    self.ElementYOffset = self.ElementYOffset + 10
-
-    local dragging = false
-    local sliderPos = Vector2.new(20 + ((default - min) / (max - min)) * 200, self.ElementYOffset)
-
-    local SliderButton = Drawing.new("Circle")
-    SliderButton.Position = sliderPos
-    SliderButton.Radius = 5
-    SliderButton.Color = Color3.fromRGB(69, 69, 207)
-    SliderButton.Visible = self.Visible
-
-    table.insert(self.Elements, SliderLabel)
-    table.insert(self.Elements, Slider)
-    table.insert(self.Elements, SliderButton)
-
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local mouse = UserInputService:GetMouseLocation()
-            if (mouse - SliderButton.Position).Magnitude < 10 then
-                dragging = true
-            end
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            dragging = false
-        end
-    end)
-
-    RunService.RenderStepped:Connect(function()
-        if dragging then
-            local mouseX = math.clamp(UserInputService:GetMouseLocation().X, 20, 220)
-            local newValue = math.floor(((mouseX - 20) / 200) * (max - min) + min)
-            SliderButton.Position = Vector2.new(mouseX, SliderButton.Position.Y)
-            SliderLabel.Text = name .. ": " .. newValue
-            if callback then
-                callback(newValue)
-            end
-        end
-    end)
+    table.insert(self.Elements, {
+        Type = "Slider",
+        Object = SliderLabel,
+        Text = name,
+        Value = default,
+        Min = min,
+        Max = max,
+        Callback = callback
+    })
 end
 
 function UILibrary:AddKeybind(name, defaultKey, callback)
@@ -140,38 +128,19 @@ function UILibrary:AddKeybind(name, defaultKey, callback)
     Keybind.Size = 18
     Keybind.Position = Vector2.new(20, self.ElementYOffset)
     Keybind.Color = Color3.fromRGB(255, 255, 255)
+    Keybind.Outline = true
+    Keybind.Font = 2 -- JosefinSans
     Keybind.Visible = self.Visible
 
     self.ElementYOffset = self.ElementYOffset + 25
-    table.insert(self.Elements, Keybind)
 
-    local binding = false
-    local assignedKey = defaultKey
-
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if not gameProcessed then
-            if binding then
-                assignedKey = input.KeyCode
-                Keybind.Text = name .. " [" .. tostring(assignedKey) .. "]"
-                binding = false
-                if callback then
-                    callback(assignedKey)
-                end
-            elseif input.KeyCode == assignedKey then
-                callback(assignedKey)
-            end
-        end
-    end)
-
-    Keybind.InputBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if not gameProcessed and input.UserInputType == Enum.UserInputType.MouseButton1 then
-            local mouse = UserInputService:GetMouseLocation()
-            if (mouse - Keybind.Position).Magnitude < 100 then
-                Keybind.Text = name .. " [Press Any Key]"
-                binding = true
-            end
-        end
-    end)
+    table.insert(self.Elements, {
+        Type = "Keybind",
+        Object = Keybind,
+        Text = name,
+        AssignedKey = defaultKey,
+        Callback = callback
+    })
 end
 
 return UILibrary
