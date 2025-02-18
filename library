@@ -72,6 +72,13 @@ function UILibrary.new(title)
                 self.SettingKeybind = false
                 if element.Callback then element.Callback(element.AssignedKey) end
             end
+        else
+            -- Check if a keybind is pressed
+            for _, element in pairs(self.Elements) do
+                if element.Type == "Keybind" and input.KeyCode == element.AssignedKey then
+                    if element.Callback then element.Callback(element.AssignedKey) end
+                end
+            end
         end
     end)
 
@@ -90,8 +97,16 @@ end
 function UILibrary:UpdateSelection()
     for i, element in ipairs(self.Elements) do
         if i == self.SelectedIndex then
-            element.Object.Text = "> " .. element.Text
+            -- Keep enums (ON/OFF) visible even when selected
+            if element.Type == "Toggle" then
+                element.Object.Text = "> " .. element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
+            elseif element.Type == "Keybind" then
+                element.Object.Text = "> " .. element.Text .. " [" .. self:FormatKeyName(element.AssignedKey) .. "]"
+            else
+                element.Object.Text = "> " .. element.Text
+            end
         else
+            -- Show normal state when not selected
             if element.Type == "Toggle" then
                 element.Object.Text = element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
             elseif element.Type == "Keybind" then
@@ -109,7 +124,7 @@ end
 
 function UILibrary:AddToggle(name, default, callback)
     local Toggle = Drawing.new("Text")
-    Toggle.Text = name .. " [OFF]"
+    Toggle.Text = name .. " [" .. (default and "ON" or "OFF") .. "]"
     Toggle.Size = 18
     Toggle.Position = Vector2.new(20, self.ElementYOffset)
     Toggle.Color = Color3.fromRGB(255, 255, 255)
