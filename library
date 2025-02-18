@@ -14,7 +14,7 @@ function UILibrary.new(title)
     local self = setmetatable({}, UILibrary)
 
     self.Visible = true
-    self.MenuKey = Enum.KeyCode.RightShift -- Default menu key
+    self.MenuKey = Enum.KeyCode.RightShift
     self.SelectedIndex = 1
     self.SettingKeybind = false
     self.Elements = {}
@@ -31,7 +31,7 @@ function UILibrary.new(title)
     self.Title.Position = Vector2.new(UI_X, UI_Y)
     self.Title.Color = Color3.fromRGB(255, 255, 255)
     self.Title.Outline = true
-    self.Title.Font = 2 -- JosefinSans
+    self.Title.Font = 2
     self.Title.Visible = self.Visible
 
     -- Divider
@@ -64,9 +64,20 @@ function UILibrary.new(title)
                     if element.Callback then element.Callback(element.State) end
                 elseif element.Type == "Keybind" and not self.SettingKeybind then
                     element.Object.Text = "> " .. element.Text .. " [Press Any Key]"
-                    element.Object.Color = Color3.fromRGB(255, 0, 0) -- Turns Red while setting
+                    element.Object.Color = Color3.fromRGB(255, 0, 0)
                     self.SettingKeybind = true
+                elseif element.Type == "Slider" then
+                    element.Value = math.min(element.Max, element.Value + 0.2)
+                    element.Object.Text = element.Text .. ": " .. string.format("%.1f", element.Value)
+                    if element.Callback then element.Callback(element.Value) end
                 end
+            end
+        elseif input.KeyCode == Enum.KeyCode.Left then
+            local element = self.Elements[self.SelectedIndex]
+            if element and element.Type == "Slider" then
+                element.Value = math.max(element.Min, element.Value - 0.2)
+                element.Object.Text = element.Text .. ": " .. string.format("%.1f", element.Value)
+                if element.Callback then element.Callback(element.Value) end
             end
         end
     end)
@@ -79,7 +90,7 @@ function UILibrary.new(title)
                 if not BlacklistedKeys[input.KeyCode] then
                     element.AssignedKey = input.KeyCode
                     element.Object.Text = "> " .. element.Text .. " [" .. self:FormatKeyName(element.AssignedKey) .. "]"
-                    element.Object.Color = Color3.fromRGB(255, 255, 255) -- Reset color
+                    element.Object.Color = Color3.fromRGB(255, 255, 255)
                     self.SettingKeybind = false
                     if element.Callback then element.Callback(element.AssignedKey) end
                 end
@@ -112,17 +123,13 @@ function UILibrary:UpdateSelection()
                 element.Object.Text = "> " .. element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
             elseif element.Type == "Keybind" then
                 element.Object.Text = "> " .. element.Text .. " [" .. self:FormatKeyName(element.AssignedKey) .. "]"
+            elseif element.Type == "Slider" then
+                element.Object.Text = "> " .. element.Text .. ": " .. string.format("%.1f", element.Value)
             else
                 element.Object.Text = "> " .. element.Text
             end
         else
-            if element.Type == "Toggle" then
-                element.Object.Text = element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
-            elseif element.Type == "Keybind" then
-                element.Object.Text = element.Text .. " [" .. self:FormatKeyName(element.AssignedKey) .. "]"
-            else
-                element.Object.Text = element.Text
-            end
+            element.Object.Text = element.Text
         end
     end
 end
@@ -138,62 +145,38 @@ function UILibrary:AddToggle(name, default, callback)
     Toggle.Position = Vector2.new(20, self.ElementYOffset)
     Toggle.Color = Color3.fromRGB(255, 255, 255)
     Toggle.Outline = true
-    Toggle.Font = 2 -- JosefinSans
+    Toggle.Font = 2
     Toggle.Visible = self.Visible
 
     self.ElementYOffset = self.ElementYOffset + 25
 
-    table.insert(self.Elements, {
-        Type = "Toggle",
-        Object = Toggle,
-        Text = name,
-        State = default,
-        Callback = callback
-    })
-
+    table.insert(self.Elements, { Type = "Toggle", Object = Toggle, Text = name, State = default, Callback = callback })
     self:UpdateSelection()
 end
 
-function UILibrary:AddKeybind(name, defaultKey, callback)
-    local Keybind = Drawing.new("Text")
-    Keybind.Text = name .. " [" .. self:FormatKeyName(defaultKey) .. "]"
-    Keybind.Size = 18
-    Keybind.Position = Vector2.new(20, self.ElementYOffset)
-    Keybind.Color = Color3.fromRGB(255, 255, 255)
-    Keybind.Outline = true
-    Keybind.Font = 2 -- JosefinSans
-    Keybind.Visible = self.Visible
+function UILibrary:AddSlider(name, min, max, default, callback)
+    local Slider = Drawing.new("Text")
+    Slider.Text = name .. ": " .. string.format("%.1f", default)
+    Slider.Size = 18
+    Slider.Position = Vector2.new(20, self.ElementYOffset)
+    Slider.Color = Color3.fromRGB(255, 255, 255)
+    Slider.Outline = true
+    Slider.Font = 2
+    Slider.Visible = self.Visible
 
     self.ElementYOffset = self.ElementYOffset + 25
 
-    table.insert(self.Elements, {
-        Type = "Keybind",
-        Object = Keybind,
-        Text = name,
-        AssignedKey = defaultKey,
-        Callback = callback
-    })
-
+    table.insert(self.Elements, { Type = "Slider", Object = Slider, Text = name, Min = min, Max = max, Value = default, Callback = callback })
     self:UpdateSelection()
 end
 
 function UILibrary:Destroy()
-    -- Disconnect Input Listeners
-    if self.InputConnection then self.InputConnection:Disconnect() end
-    if self.KeybindConnection then self.KeybindConnection:Disconnect() end
-
-    -- Remove UI Elements
+    self.InputConnection:Disconnect()
+    self.KeybindConnection:Disconnect()
     self.Title:Remove()
     self.Divider:Remove()
-
-    for _, element in pairs(self.Elements) do
-        element.Object:Remove()
-    end
-
-    -- Clear UI Elements Table
+    for _, element in pairs(self.Elements) do element.Object:Remove() end
     self.Elements = {}
-
-    -- Set UI Instance to nil
     setmetatable(self, nil)
 end
 
