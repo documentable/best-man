@@ -1,6 +1,12 @@
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
+local BlacklistedKeys = {
+    [Enum.KeyCode.W] = true, [Enum.KeyCode.A] = true, [Enum.KeyCode.S] = true, [Enum.KeyCode.D] = true,
+    [Enum.KeyCode.Up] = true, [Enum.KeyCode.Down] = true, [Enum.KeyCode.Left] = true, [Enum.KeyCode.Right] = true,
+    [Enum.KeyCode.Space] = true
+}
+
 local UILibrary = {}
 UILibrary.__index = UILibrary
 
@@ -9,7 +15,7 @@ function UILibrary.new(title)
 
     self.Visible = true
     self.MenuKey = Enum.KeyCode.RightShift -- Default menu key
-    self.SelectedIndex = 1 -- Default to first option
+    self.SelectedIndex = 1
     self.SettingKeybind = false
     self.Elements = {}
 
@@ -37,11 +43,13 @@ function UILibrary.new(title)
 
     self.ElementYOffset = UI_Y + 40
 
-    -- Arrow Key Navigation
+    -- UI Toggle
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if gameProcessed then return end
 
-        if input.KeyCode == Enum.KeyCode.Up then
+        if input.KeyCode == self.MenuKey then
+            self:ToggleVisibility()
+        elseif input.KeyCode == Enum.KeyCode.Up then
             self.SelectedIndex = math.max(1, self.SelectedIndex - 1)
             self:UpdateSelection()
         elseif input.KeyCode == Enum.KeyCode.Down then
@@ -56,24 +64,27 @@ function UILibrary.new(title)
                     if element.Callback then element.Callback(element.State) end
                 elseif element.Type == "Keybind" and not self.SettingKeybind then
                     element.Object.Text = "> " .. element.Text .. " [Press Any Key]"
+                    element.Object.Color = Color3.fromRGB(255, 0, 0) -- Turns Red while setting
                     self.SettingKeybind = true
                 end
             end
         end
     end)
 
-    -- Keybind Setting
+    -- Keybind Setting & Keybind Triggering
     UserInputService.InputBegan:Connect(function(input, gameProcessed)
         if self.SettingKeybind and not gameProcessed then
             local element = self.Elements[self.SelectedIndex]
             if element and element.Type == "Keybind" then
-                element.AssignedKey = input.KeyCode
-                element.Object.Text = "> " .. element.Text .. " [" .. self:FormatKeyName(element.AssignedKey) .. "]"
-                self.SettingKeybind = false
-                if element.Callback then element.Callback(element.AssignedKey) end
+                if not BlacklistedKeys[input.KeyCode] then
+                    element.AssignedKey = input.KeyCode
+                    element.Object.Text = "> " .. element.Text .. " [" .. self:FormatKeyName(element.AssignedKey) .. "]"
+                    element.Object.Color = Color3.fromRGB(255, 255, 255) -- Reset color
+                    self.SettingKeybind = false
+                    if element.Callback then element.Callback(element.AssignedKey) end
+                end
             end
         else
-            -- Check if a keybind is pressed
             for _, element in pairs(self.Elements) do
                 if element.Type == "Keybind" and input.KeyCode == element.AssignedKey then
                     if element.Callback then element.Callback(element.AssignedKey) end
@@ -97,7 +108,6 @@ end
 function UILibrary:UpdateSelection()
     for i, element in ipairs(self.Elements) do
         if i == self.SelectedIndex then
-            -- Keep enums (ON/OFF) visible even when selected
             if element.Type == "Toggle" then
                 element.Object.Text = "> " .. element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
             elseif element.Type == "Keybind" then
@@ -106,7 +116,6 @@ function UILibrary:UpdateSelection()
                 element.Object.Text = "> " .. element.Text
             end
         else
-            -- Show normal state when not selected
             if element.Type == "Toggle" then
                 element.Object.Text = element.Text .. " [" .. (element.State and "ON" or "OFF") .. "]"
             elseif element.Type == "Keybind" then
@@ -139,31 +148,6 @@ function UILibrary:AddToggle(name, default, callback)
         Object = Toggle,
         Text = name,
         State = default,
-        Callback = callback
-    })
-
-    self:UpdateSelection()
-end
-
-function UILibrary:AddSlider(name, min, max, default, callback)
-    local SliderLabel = Drawing.new("Text")
-    SliderLabel.Text = name .. ": " .. default
-    SliderLabel.Size = 18
-    SliderLabel.Position = Vector2.new(20, self.ElementYOffset)
-    SliderLabel.Color = Color3.fromRGB(255, 255, 255)
-    SliderLabel.Outline = true
-    SliderLabel.Font = 2 -- JosefinSans
-    SliderLabel.Visible = self.Visible
-
-    self.ElementYOffset = self.ElementYOffset + 25
-
-    table.insert(self.Elements, {
-        Type = "Slider",
-        Object = SliderLabel,
-        Text = name,
-        Value = default,
-        Min = min,
-        Max = max,
         Callback = callback
     })
 
